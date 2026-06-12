@@ -3,159 +3,261 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OI Sentinel — NSE Dashboard</title>
+<title>OI Sentinel</title>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-<div id="header">
-  <div id="logo">⚡ OI Sentinel</div>
-  <div id="ticker-bar">
-    <div class="ticker-card">
-      <span class="t-name">NIFTY</span>
-      <span class="t-spot" id="spot-NIFTY">—</span>
-      <span class="t-sig" id="sig-NIFTY">—</span>
+<!-- SCAN LINE OVERLAY -->
+<div class="scanlines"></div>
+<div class="grid-bg"></div>
+
+<!-- ══ HEADER ══ -->
+<header id="header">
+  <div class="header-left">
+    <div class="logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">OI<span class="logo-accent">SENTINEL</span></span>
     </div>
-    <div class="ticker-card">
-      <span class="t-name">BANKNIFTY</span>
-      <span class="t-spot" id="spot-BANKNIFTY">—</span>
-      <span class="t-sig" id="sig-BANKNIFTY">—</span>
+    <div class="sym-tabs">
+      <button class="sym-tab active" data-sym="NIFTY" onclick="switchSymbol('NIFTY',this)">NIFTY</button>
+      <button class="sym-tab" data-sym="BANKNIFTY" onclick="switchSymbol('BANKNIFTY',this)">BANKNIFTY</button>
     </div>
   </div>
-  <div id="header-right">
-    <div id="ist-clock">—</div>
-    <div id="market-status">—</div>
-    <button id="live-toggle" class="btn-live active" onclick="toggleLive()">● LIVE</button>
+
+  <div class="header-tickers">
+    <div class="ticker" id="tick-NIFTY">
+      <span class="tick-name">NIFTY</span>
+      <span class="tick-spot" id="spot-NIFTY">——</span>
+      <span class="tick-badge" id="badge-NIFTY">——</span>
+    </div>
+    <div class="ticker-divider">|</div>
+    <div class="ticker" id="tick-BANKNIFTY">
+      <span class="tick-name">BNF</span>
+      <span class="tick-spot" id="spot-BANKNIFTY">——</span>
+      <span class="tick-badge" id="badge-BANKNIFTY">——</span>
+    </div>
+  </div>
+
+  <div class="header-right">
+    <div class="clock-wrap">
+      <div id="ist-clock" class="clock">──:──:──</div>
+      <div id="mkt-status" class="mkt-status">──</div>
+    </div>
+    <button id="live-btn" class="live-btn active" onclick="toggleLive()">
+      <span class="live-dot"></span><span id="live-label">LIVE</span>
+    </button>
+  </div>
+</header>
+
+<!-- ══ TIME BAR ══ -->
+<div id="timebar-section">
+  <div class="timebar-wrap">
+    <div class="timebar-left">
+      <select id="date-select" class="date-pick" onchange="onDateChange()">
+        <option>── select date ──</option>
+      </select>
+      <div class="mode-toggle">
+        <button class="mode-btn active" id="btn-live-oi" onclick="setChartMode('live')">LIVE OI</button>
+        <button class="mode-btn" id="btn-compare" onclick="setChartMode('compare')">COMPARE Δ</button>
+      </div>
+    </div>
+
+    <div class="timebar-center" id="timebar-center">
+      <div class="time-range-labels">
+        <span id="tl-start" class="tl-label">──:──</span>
+        <span id="tl-current" class="tl-current">──:──</span>
+        <span id="tl-end" class="tl-label">──:──</span>
+      </div>
+      <div class="range-track-wrap">
+        <canvas id="pcr-minimap" class="pcr-minimap"></canvas>
+        <div class="range-track" id="range-track">
+          <div class="range-fill" id="range-fill"></div>
+          <div class="range-handle left" id="handle-left" onmousedown="startDrag('left',event)">
+            <span class="handle-time" id="ht-left">──:──</span>
+          </div>
+          <div class="range-handle right" id="handle-right" onmousedown="startDrag('right',event)">
+            <span class="handle-time" id="ht-right">──:──</span>
+          </div>
+        </div>
+      </div>
+      <div class="snap-count" id="snap-count">── snapshots</div>
+    </div>
+
+    <div class="timebar-right">
+      <button class="play-btn" id="play-btn" onclick="togglePlay()">▶</button>
+      <select id="play-speed" class="speed-sel">
+        <option value="1000">1×</option>
+        <option value="500">2×</option>
+        <option value="200">5×</option>
+      </select>
+      <span id="countdown-badge" class="countdown">──s</span>
+    </div>
   </div>
 </div>
 
-<div id="sym-tabs">
-  <button class="sym-tab active" onclick="switchSymbol('NIFTY',event)">NIFTY</button>
-  <button class="sym-tab" onclick="switchSymbol('BANKNIFTY',event)">BANKNIFTY</button>
-</div>
-
-<div id="signal-section">
-  <div id="signal-card">
-    <div id="sc-left">
-      <div id="sc-symbol">—</div>
-      <div id="sc-spot">—</div>
-      <div id="sc-expiry">Expiry: —</div>
+<!-- ══ SIGNAL STRIP ══ -->
+<div id="signal-strip">
+  <!-- NIFTY CARD -->
+  <div class="sig-card" id="sigcard-NIFTY">
+    <div class="sig-card-inner">
+      <div class="sig-top">
+        <div class="sig-sym">NIFTY</div>
+        <div class="sig-spot" id="sc-spot-NIFTY">──────</div>
+        <div class="sig-expiry" id="sc-expiry-NIFTY">Expiry ──</div>
+      </div>
+      <div class="sig-mid">
+        <div class="sig-verdict" id="sc-verdict-NIFTY">──────</div>
+        <div class="sig-bar-track"><div class="sig-bar-fill" id="sc-bar-NIFTY"></div></div>
+        <div class="sig-pct" id="sc-pct-NIFTY">Bull Score ──%</div>
+      </div>
+      <div class="sig-metrics">
+        <div class="sm"><span class="sm-l">Max Pain</span><span class="sm-v" id="sm-mp-NIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">PCR</span><span class="sm-v" id="sm-pcr-NIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">PCR ATM</span><span class="sm-v" id="sm-pcratm-NIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">IV Skew</span><span class="sm-v" id="sm-ivs-NIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">CE IV</span><span class="sm-v" id="sm-ceiv-NIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">PE IV</span><span class="sm-v" id="sm-peiv-NIFTY">──</span></div>
+      </div>
     </div>
-    <div id="sc-center">
-      <div id="sc-sentiment">—</div>
-      <div id="sc-bar-wrap"><div id="sc-bar"></div></div>
-      <div id="sc-pct">—</div>
-    </div>
-    <div id="sc-right">
-      <div class="sc-metric"><span class="sc-label">Max Pain</span><span id="sc-maxpain">—</span></div>
-      <div class="sc-metric"><span class="sc-label">PCR Total</span><span id="sc-pcr">—</span></div>
-      <div class="sc-metric"><span class="sc-label">PCR ATM</span><span id="sc-pcratm">—</span></div>
-      <div class="sc-metric"><span class="sc-label">IV Skew</span><span id="sc-ivskew">—</span></div>
-      <div class="sc-metric"><span class="sc-label">ATM CE IV</span><span id="sc-ceiv">—</span></div>
-      <div class="sc-metric"><span class="sc-label">ATM PE IV</span><span id="sc-peiv">—</span></div>
+    <div class="sig-targets">
+      <div class="tgt bear-tgt">
+        <div class="tgt-lbl">▼ BEAR</div>
+        <div class="tgt-vals"><span id="bt1-NIFTY">──</span><span id="bt2-NIFTY">──</span><span id="bt3-NIFTY">──</span></div>
+      </div>
+      <div class="tgt wall-tgt">
+        <div class="tgt-lbl">⬛ WALLS</div>
+        <div class="tgt-vals"><span id="wc-NIFTY" class="call-wall">C:──</span><span id="wp-NIFTY" class="put-wall">P:──</span></div>
+      </div>
+      <div class="tgt bull-tgt">
+        <div class="tgt-lbl">▲ BULL</div>
+        <div class="tgt-vals"><span id="ut1-NIFTY">──</span><span id="ut2-NIFTY">──</span><span id="ut3-NIFTY">──</span></div>
+      </div>
     </div>
   </div>
-  <div id="targets-row">
-    <div class="target-box bear">
-      <div class="tgt-label">🔻 BEAR TARGETS</div>
-      <div class="tgt-vals"><span id="tgt-b1">T1: —</span><span id="tgt-b2">T2: —</span><span id="tgt-b3">T3: —</span></div>
+
+  <!-- CONVICTION GAUGE -->
+  <div class="conviction-wrap">
+    <div class="conviction-title">CONVICTION</div>
+    <canvas id="conviction-gauge" width="220" height="130"></canvas>
+    <div class="conviction-label" id="conv-label">──</div>
+    <div class="conviction-signals" id="conv-signals">──</div>
+  </div>
+
+  <!-- BANKNIFTY CARD -->
+  <div class="sig-card" id="sigcard-BANKNIFTY">
+    <div class="sig-card-inner">
+      <div class="sig-top">
+        <div class="sig-sym">BANKNIFTY</div>
+        <div class="sig-spot" id="sc-spot-BANKNIFTY">──────</div>
+        <div class="sig-expiry" id="sc-expiry-BANKNIFTY">Expiry ──</div>
+      </div>
+      <div class="sig-mid">
+        <div class="sig-verdict" id="sc-verdict-BANKNIFTY">──────</div>
+        <div class="sig-bar-track"><div class="sig-bar-fill" id="sc-bar-BANKNIFTY"></div></div>
+        <div class="sig-pct" id="sc-pct-BANKNIFTY">Bull Score ──%</div>
+      </div>
+      <div class="sig-metrics">
+        <div class="sm"><span class="sm-l">Max Pain</span><span class="sm-v" id="sm-mp-BANKNIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">PCR</span><span class="sm-v" id="sm-pcr-BANKNIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">PCR ATM</span><span class="sm-v" id="sm-pcratm-BANKNIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">IV Skew</span><span class="sm-v" id="sm-ivs-BANKNIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">CE IV</span><span class="sm-v" id="sm-ceiv-BANKNIFTY">──</span></div>
+        <div class="sm"><span class="sm-l">PE IV</span><span class="sm-v" id="sm-peiv-BANKNIFTY">──</span></div>
+      </div>
     </div>
-    <div class="target-box walls">
-      <div class="tgt-label">🧱 OI WALLS</div>
-      <div class="tgt-vals"><span id="wall-c">Call: —</span><span id="wall-p">Put: —</span></div>
-    </div>
-    <div class="target-box bull">
-      <div class="tgt-label">🔺 BULL TARGETS</div>
-      <div class="tgt-vals"><span id="tgt-u1">T1: —</span><span id="tgt-u2">T2: —</span><span id="tgt-u3">T3: —</span></div>
+    <div class="sig-targets">
+      <div class="tgt bear-tgt">
+        <div class="tgt-lbl">▼ BEAR</div>
+        <div class="tgt-vals"><span id="bt1-BANKNIFTY">──</span><span id="bt2-BANKNIFTY">──</span><span id="bt3-BANKNIFTY">──</span></div>
+      </div>
+      <div class="tgt wall-tgt">
+        <div class="tgt-lbl">⬛ WALLS</div>
+        <div class="tgt-vals"><span id="wc-BANKNIFTY" class="call-wall">C:──</span><span id="wp-BANKNIFTY" class="put-wall">P:──</span></div>
+      </div>
+      <div class="tgt bull-tgt">
+        <div class="tgt-lbl">▲ BULL</div>
+        <div class="tgt-vals"><span id="ut1-BANKNIFTY">──</span><span id="ut2-BANKNIFTY">──</span><span id="ut3-BANKNIFTY">──</span></div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- ══ MAIN CONTENT ══ -->
 <div id="main-content">
+  <!-- CHART PANEL -->
   <div id="chart-panel">
     <div id="chart-controls">
-      <span class="ctrl-label">OI Change vs:</span>
-      <select id="delta-select" onchange="redrawChart()">
-        <option value="0">None</option>
-        <option value="5">5 min</option>
-        <option value="10">10 min</option>
-        <option value="15" selected>15 min</option>
-        <option value="30">30 min</option>
-        <option value="60">1 hour</option>
-      </select>
-      <span class="ctrl-label" style="margin-left:16px">Strikes:</span>
-      <select id="strikes-select" onchange="redrawChart()">
-        <option value="20">±10 ATM</option>
-        <option value="30" selected>±15 ATM</option>
-        <option value="40">±20 ATM</option>
-        <option value="999">All</option>
-      </select>
-      <label class="toggle-label">
-        <input type="checkbox" id="show-delta" checked onchange="redrawChart()"> Show Δ OI
-      </label>
+      <div class="cc-group">
+        <span class="cc-label">STRIKES</span>
+        <select id="strikes-select" onchange="redrawChart()">
+          <option value="20">±10</option>
+          <option value="30" selected>±15</option>
+          <option value="40">±20</option>
+          <option value="999">ALL</option>
+        </select>
+      </div>
+      <div class="cc-group">
+        <label class="cc-check">
+          <input type="checkbox" id="show-delta" checked onchange="redrawChart()">
+          <span>SHOW Δ BARS</span>
+        </label>
+      </div>
+      <div class="cc-group" id="compare-label-group" style="display:none">
+        <span class="cc-label teal">COMPARING: </span>
+        <span id="compare-range-label" class="cc-label teal">──:── → ──:──</span>
+      </div>
     </div>
     <div id="oi-chart"></div>
   </div>
+
+  <!-- METRICS PANEL -->
   <div id="metrics-panel">
-    <div class="panel-title">📊 OI METRICS</div>
-    <div class="metrics-section">
-      <div class="ms-title">OI TREND</div>
-      <div class="ms-row"><span>5 min</span><span id="trend-5">—</span></div>
-      <div class="ms-row"><span>15 min</span><span id="trend-15">—</span></div>
-      <div class="ms-row"><span>30 min</span><span id="trend-30">—</span></div>
-      <div class="ms-row"><span>1 hour</span><span id="trend-60">—</span></div>
+    <div class="mp-section">
+      <div class="mp-title">OI TREND</div>
+      <div class="oi-trend-row" id="tr-5"><span class="tr-label">5 MIN</span><span class="tr-arrow">──</span><span class="tr-detail">──</span></div>
+      <div class="oi-trend-row" id="tr-15"><span class="tr-label">15 MIN</span><span class="tr-arrow">──</span><span class="tr-detail">──</span></div>
+      <div class="oi-trend-row" id="tr-30"><span class="tr-label">30 MIN</span><span class="tr-arrow">──</span><span class="tr-detail">──</span></div>
+      <div class="oi-trend-row" id="tr-60"><span class="tr-label">1 HOUR</span><span class="tr-arrow">──</span><span class="tr-detail">──</span></div>
     </div>
-    <div class="metrics-section">
-      <div class="ms-title">TOP CALL WALLS</div>
-      <div id="top-calls">—</div>
+
+    <div class="mp-section">
+      <div class="mp-title">TOP CALL WALLS</div>
+      <div id="top-calls-list"></div>
     </div>
-    <div class="metrics-section">
-      <div class="ms-title">TOP PUT WALLS</div>
-      <div id="top-puts">—</div>
+
+    <div class="mp-section">
+      <div class="mp-title">TOP PUT WALLS</div>
+      <div id="top-puts-list"></div>
     </div>
-    <div class="metrics-section">
-      <div class="ms-title">TOTAL OI</div>
-      <div class="ms-row"><span>CE OI</span><span id="total-ce">—</span></div>
-      <div class="ms-row"><span>PE OI</span><span id="total-pe">—</span></div>
-      <div class="ms-row"><span>PCR</span><span id="pcr-total-2">—</span></div>
+
+    <div class="mp-section">
+      <div class="mp-title">TOTAL OI</div>
+      <div class="oi-total-row"><span>CE OI</span><span id="total-ce">──</span></div>
+      <div class="oi-total-row"><span>PE OI</span><span id="total-pe">──</span></div>
+      <div class="oi-total-row accent"><span>PCR</span><span id="pcr-display">──</span></div>
     </div>
-    <div class="metrics-section">
-      <div class="ms-title">PCR TODAY</div>
-      <div id="pcr-spark"></div>
+
+    <div class="mp-section">
+      <div class="mp-title">PCR TODAY</div>
+      <canvas id="pcr-spark-canvas" height="60"></canvas>
     </div>
-    <div class="metrics-section">
-      <div class="ms-title">INFO</div>
-      <div class="ms-row"><span>Updated</span><span id="last-update-time" style="font-size:10px">—</span></div>
-      <div class="ms-row"><span>Expiry</span><span id="info-expiry" style="font-size:10px">—</span></div>
+
+    <div class="mp-section">
+      <div class="mp-title">LAST UPDATE</div>
+      <div class="update-time" id="update-time">──</div>
+      <div class="update-expiry" id="update-expiry">──</div>
     </div>
   </div>
 </div>
 
-<div id="history-panel" style="display:none">
-  <div id="history-controls">
-    <span class="ctrl-label">Date:</span>
-    <select id="date-select" onchange="loadDateSnapshots()"></select>
-    <span class="ctrl-label" style="margin-left:12px">Time:</span>
-    <span id="scrub-time-label" class="yellow bold">—</span>
-    <button class="btn-sm" onclick="playHistory()" id="play-btn">▶ Play</button>
-    <button class="btn-sm" onclick="stopHistory()">⏹ Stop</button>
-    <select id="play-speed">
-      <option value="1000">1x</option>
-      <option value="500">2x</option>
-      <option value="200">5x</option>
-    </select>
-    <span id="hist-snap-count" class="ctrl-label" style="margin-left:12px"></span>
-  </div>
-  <div id="scrubber-wrap">
-    <div id="pcr-sparkline-bg"></div>
-    <input type="range" id="scrubber" min="0" max="100" value="0" oninput="scrubTo(this.value)">
-  </div>
-</div>
-
+<!-- STATUS BAR -->
 <div id="status-bar">
-  <span id="status-msg">Initializing...</span>
-  <span id="poll-countdown"></span>
+  <span id="status-msg" class="status-msg">Initializing OI Sentinel...</span>
+  <span id="status-right" class="status-right">──</span>
 </div>
 
 <script src="/static/app.js"></script>
