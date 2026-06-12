@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OI Sentinel — NSE Dashboard</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div id="header">
+  <div id="logo">⚡ OI Sentinel</div>
+  <div id="ticker-bar">
+    <div class="ticker-card">
+      <span class="t-name">NIFTY</span>
+      <span class="t-spot" id="spot-NIFTY">—</span>
+      <span class="t-sig" id="sig-NIFTY">—</span>
+    </div>
+    <div class="ticker-card">
+      <span class="t-name">BANKNIFTY</span>
+      <span class="t-spot" id="spot-BANKNIFTY">—</span>
+      <span class="t-sig" id="sig-BANKNIFTY">—</span>
+    </div>
+  </div>
+  <div id="header-right">
+    <div id="ist-clock">—</div>
+    <div id="market-status">—</div>
+    <button id="live-toggle" class="btn-live active" onclick="toggleLive()">● LIVE</button>
+  </div>
+</div>
+
+<div id="sym-tabs">
+  <button class="sym-tab active" onclick="switchSymbol('NIFTY',event)">NIFTY</button>
+  <button class="sym-tab" onclick="switchSymbol('BANKNIFTY',event)">BANKNIFTY</button>
+</div>
+
+<div id="signal-section">
+  <div id="signal-card">
+    <div id="sc-left">
+      <div id="sc-symbol">—</div>
+      <div id="sc-spot">—</div>
+      <div id="sc-expiry">Expiry: —</div>
+    </div>
+    <div id="sc-center">
+      <div id="sc-sentiment">—</div>
+      <div id="sc-bar-wrap"><div id="sc-bar"></div></div>
+      <div id="sc-pct">—</div>
+    </div>
+    <div id="sc-right">
+      <div class="sc-metric"><span class="sc-label">Max Pain</span><span id="sc-maxpain">—</span></div>
+      <div class="sc-metric"><span class="sc-label">PCR Total</span><span id="sc-pcr">—</span></div>
+      <div class="sc-metric"><span class="sc-label">PCR ATM</span><span id="sc-pcratm">—</span></div>
+      <div class="sc-metric"><span class="sc-label">IV Skew</span><span id="sc-ivskew">—</span></div>
+      <div class="sc-metric"><span class="sc-label">ATM CE IV</span><span id="sc-ceiv">—</span></div>
+      <div class="sc-metric"><span class="sc-label">ATM PE IV</span><span id="sc-peiv">—</span></div>
+    </div>
+  </div>
+  <div id="targets-row">
+    <div class="target-box bear">
+      <div class="tgt-label">🔻 BEAR TARGETS</div>
+      <div class="tgt-vals"><span id="tgt-b1">T1: —</span><span id="tgt-b2">T2: —</span><span id="tgt-b3">T3: —</span></div>
+    </div>
+    <div class="target-box walls">
+      <div class="tgt-label">🧱 OI WALLS</div>
+      <div class="tgt-vals"><span id="wall-c">Call: —</span><span id="wall-p">Put: —</span></div>
+    </div>
+    <div class="target-box bull">
+      <div class="tgt-label">🔺 BULL TARGETS</div>
+      <div class="tgt-vals"><span id="tgt-u1">T1: —</span><span id="tgt-u2">T2: —</span><span id="tgt-u3">T3: —</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="main-content">
+  <div id="chart-panel">
+    <div id="chart-controls">
+      <span class="ctrl-label">OI Change vs:</span>
+      <select id="delta-select" onchange="redrawChart()">
+        <option value="0">None</option>
+        <option value="5">5 min</option>
+        <option value="10">10 min</option>
+        <option value="15" selected>15 min</option>
+        <option value="30">30 min</option>
+        <option value="60">1 hour</option>
+      </select>
+      <span class="ctrl-label" style="margin-left:16px">Strikes:</span>
+      <select id="strikes-select" onchange="redrawChart()">
+        <option value="20">±10 ATM</option>
+        <option value="30" selected>±15 ATM</option>
+        <option value="40">±20 ATM</option>
+        <option value="999">All</option>
+      </select>
+      <label class="toggle-label">
+        <input type="checkbox" id="show-delta" checked onchange="redrawChart()"> Show Δ OI
+      </label>
+    </div>
+    <div id="oi-chart"></div>
+  </div>
+  <div id="metrics-panel">
+    <div class="panel-title">📊 OI METRICS</div>
+    <div class="metrics-section">
+      <div class="ms-title">OI TREND</div>
+      <div class="ms-row"><span>5 min</span><span id="trend-5">—</span></div>
+      <div class="ms-row"><span>15 min</span><span id="trend-15">—</span></div>
+      <div class="ms-row"><span>30 min</span><span id="trend-30">—</span></div>
+      <div class="ms-row"><span>1 hour</span><span id="trend-60">—</span></div>
+    </div>
+    <div class="metrics-section">
+      <div class="ms-title">TOP CALL WALLS</div>
+      <div id="top-calls">—</div>
+    </div>
+    <div class="metrics-section">
+      <div class="ms-title">TOP PUT WALLS</div>
+      <div id="top-puts">—</div>
+    </div>
+    <div class="metrics-section">
+      <div class="ms-title">TOTAL OI</div>
+      <div class="ms-row"><span>CE OI</span><span id="total-ce">—</span></div>
+      <div class="ms-row"><span>PE OI</span><span id="total-pe">—</span></div>
+      <div class="ms-row"><span>PCR</span><span id="pcr-total-2">—</span></div>
+    </div>
+    <div class="metrics-section">
+      <div class="ms-title">PCR TODAY</div>
+      <div id="pcr-spark"></div>
+    </div>
+    <div class="metrics-section">
+      <div class="ms-title">INFO</div>
+      <div class="ms-row"><span>Updated</span><span id="last-update-time" style="font-size:10px">—</span></div>
+      <div class="ms-row"><span>Expiry</span><span id="info-expiry" style="font-size:10px">—</span></div>
+    </div>
+  </div>
+</div>
+
+<div id="history-panel" style="display:none">
+  <div id="history-controls">
+    <span class="ctrl-label">Date:</span>
+    <select id="date-select" onchange="loadDateSnapshots()"></select>
+    <span class="ctrl-label" style="margin-left:12px">Time:</span>
+    <span id="scrub-time-label" class="yellow bold">—</span>
+    <button class="btn-sm" onclick="playHistory()" id="play-btn">▶ Play</button>
+    <button class="btn-sm" onclick="stopHistory()">⏹ Stop</button>
+    <select id="play-speed">
+      <option value="1000">1x</option>
+      <option value="500">2x</option>
+      <option value="200">5x</option>
+    </select>
+    <span id="hist-snap-count" class="ctrl-label" style="margin-left:12px"></span>
+  </div>
+  <div id="scrubber-wrap">
+    <div id="pcr-sparkline-bg"></div>
+    <input type="range" id="scrubber" min="0" max="100" value="0" oninput="scrubTo(this.value)">
+  </div>
+</div>
+
+<div id="status-bar">
+  <span id="status-msg">Initializing...</span>
+  <span id="poll-countdown"></span>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
